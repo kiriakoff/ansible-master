@@ -1,0 +1,22 @@
+---
+- name: Ensure required directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "u=rwx,g=rx,o=rx"
+  loop:
+    - "{{ app_path }}/config"
+    - "{{ data_path }}/files"
+    - "{{ data_path }}/db"
+
+- name: Render docker-compose file from template
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ app_path }}/docker-compose.yml"
+    mode: "u=rw,g=r,o=r"
+
+- name: Launch container
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_path }}"
+    recreate: always
+    remove_orphans: true

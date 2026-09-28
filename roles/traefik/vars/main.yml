@@ -1,0 +1,3 @@
+---
+app_path: '{{ common_app_path }}/traefik'
+traefik_acme_email: 'kiriakov.f.m@gmail.com'

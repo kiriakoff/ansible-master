@@ -1,0 +1,24 @@
+services:
+  vibe-manager:
+    container_name: vibe-manager
+    image: ghcr.io/{{ gh_username }}/vibe-manager:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /data/vibe-manager:/data
+      - /data/filebrowser/files:/filebrowser:ro
+    networks:
+      - proxy
+    environment:
+      - FILEBROWSER_ROOT=/filebrowser
+      - DATA_ROOT=/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vibe-manager.rule=Host(`vibes.{{ domain }}`)"
+      - "traefik.http.routers.vibe-manager.entrypoints=websecure"
+      - "traefik.http.services.vibe-manager.loadbalancer.server.port=8000"
+    restart: unless-stopped
+
+networks:
+  proxy:
+    name: proxy
+    external: true

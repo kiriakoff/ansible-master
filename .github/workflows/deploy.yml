@@ -1,0 +1,81 @@
+name: Deploy role
+
+on:
+  repository_dispatch:
+    types: [Deploy role]
+  workflow_dispatch:
+    inputs:
+      role:
+        description: 'Ansible role to deploy'
+        required: true
+        type: string
+      limit:
+        description: 'Hosts to limit the playbook run to (optional)'
+        required: false
+        type: string
+        default: 'all'
+  workflow_call:
+    inputs:
+      role:
+        description: 'Ansible role to deploy'
+        required: true
+        type: string
+      limit:
+        description: 'Hosts to limit the playbook run to (optional)'
+        required: false
+        type: string
+        default: 'all'
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.role || github.event.inputs.role || github.event.client_payload.role }}
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      ROLE: ${{ inputs.role || github.event.inputs.role || github.event.client_payload.role }}
+      LIMIT: ${{ inputs.limit || github.event.inputs.limit || github.event.client_payload.limit || 'all' }}
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache-dependency-path: playbooks/requirements/runner.txt
+          cache: 'pip'
+
+      - name: Install Ansible
+        run: |
+          if ! ansible-galaxy collection list community.general 2>/dev/null; then
+            python -m pip install --upgrade pip
+            pip install -r playbooks/requirements/runner.txt
+            ansible-galaxy collection install -r playbooks/requirements/runner.yml
+          fi
+
+      - name: Set up SSH
+        run: |
+          echo "${{ secrets.ANSIBLE_SSH_PRIVATE_KEY }}" > private_key.pem
+          chmod 600 private_key.pem
+
+      - name: Write gh secrets and vars to files
+        run: |
+          echo -n '"gh_vars": ' >> vars.json
+          echo '${{ toJson(vars) }}' | sed 's|\\r\\n|\\n|g' >> vars.json
+          echo -n '"gh_secrets": ' >> secrets.json
+          echo '${{ toJson(secrets) }}' | sed 's|\\r\\n|\\n|g' >> secrets.json
+
+      - name: Run Ansible Playbook
+        env:
+          ANSIBLE_USER: ansible
+          ANSIBLE_HOST_KEY_CHECKING: False
+        run: |
+          ansible-playbook \
+          --extra-vars "role_to_deploy=${{ env.ROLE }}" \
+          --extra-vars "gh_username=${{ github.repository_owner }}" \
+          --extra-vars "@vars.json" \
+          --extra-vars "@secrets.json" \
+          --private-key private_key.pem \
+          --limit "${{ env.LIMIT }}" \
+          playbooks/deploy.yml

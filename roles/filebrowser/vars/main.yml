@@ -1,0 +1,3 @@
+---
+app_path: "{{ common_app_path }}/filebrowser"
+data_path: "{{ common_data_path }}/filebrowser"

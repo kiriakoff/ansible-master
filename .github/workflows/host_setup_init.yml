@@ -1,0 +1,52 @@
+name: 'Host setup: Init'
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: 'Host to bootstrap (IP or hostname)'
+        required: true
+      root_password:
+        description: 'Root password for initial access'
+        required: true
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache-dependency-path: playbooks/requirements/runner.txt
+          cache: 'pip'
+
+      - name: Install Ansible and dependencies
+        run: |
+          if ! ansible-galaxy collection list community.general 2>/dev/null; then
+            python -m pip install --upgrade pip
+            pip install -r playbooks/requirements/runner.txt
+            ansible-galaxy collection install -r playbooks/requirements/runner.yml
+          fi
+
+      - name: Write SSH users JSON to file
+        run: |
+          echo -n '"ssh_user_map": ' >> extra_vars.json
+          echo '${{ vars.SSH_USER_MAP }}' >> extra_vars.json
+
+      - name: Bootstrap host
+        run: |
+          ansible-playbook \
+            --limit ${{ inputs.host }} \
+            --extra-vars @extra_vars.json \
+            --extra-vars 'ansible_user=root' \
+            --extra-vars 'ansible_ssh_pass=${{ inputs.root_password }}' \
+            --extra-vars 'ansible_python_interpreter=/usr/bin/python3' \
+            --extra-vars 'update_keyring=true'' \
+            playbooks/bootstrap.yml
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: false
+          ANSIBLE_CALLBACK_WHITELIST: profile_tasks

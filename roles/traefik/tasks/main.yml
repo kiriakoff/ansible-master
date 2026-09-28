@@ -1,0 +1,25 @@
+---
+- name: Create volume mount directory
+  ansible.builtin.file:
+    path: "{{ app_path }}"
+    state: directory
+    mode: "u=rwx,g=rx,o=rx"
+
+- name: Render docker-compose.yml and traefik.yml from templates
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "{{ app_path }}/{{ item }}"
+    mode: "u=rw,g=r,o=r"
+  loop:
+    - docker-compose.yml
+    - traefik.yml
+
+- name: Ensure acme.json exists with correct permissions
+  ansible.builtin.file:
+    path: "{{ app_path }}/acme.json"
+    state: file
+    mode: "u=rw,go="
+
+- name: Start the container
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_path }}"

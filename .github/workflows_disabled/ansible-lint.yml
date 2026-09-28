@@ -1,0 +1,43 @@
+name: Ansible lint
+
+on:
+  push:
+    paths:
+      - 'group_vars/*.yml'
+      - 'playbooks/*.yml'
+      - 'roles/*/tasks/*.yml'
+      - 'roles/*/vars/*.yml'
+      - 'inventory.yml'
+  pull_request:
+    paths:
+      - 'group_vars/*.yml'
+      - 'playbooks/*.yml'
+      - 'roles/*/tasks/*.yml'
+      - 'roles/*/vars/*.yml'
+      - 'inventory.yml'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up python dependencies
+        run: echo -e "ansible\nansible-lint" > requirements.txt
+
+      - name: Install python with pip dependencies
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install Ansible
+        run: |
+          pip install -r requirements.txt
+          ansible-galaxy collection install community.docker
+
+      - name: Run ansible-lint
+        run: |
+          ansible-lint

@@ -1,0 +1,17 @@
+services:
+  lofi-player:
+    container_name: lofi-player
+    image: ghcr.io/{{ gh_username }}/allrensys-media-player:latest
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.lofi-player.rule=Host(`{{ domain }}`)"
+      - "traefik.http.routers.lofi-player.entrypoints=websecure"
+      - "traefik.http.services.lofi-player.loadbalancer.server.port=80"
+    restart: unless-stopped
+
+networks:
+  proxy:
+    name: proxy
+    external: true

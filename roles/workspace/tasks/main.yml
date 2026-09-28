@@ -1,0 +1,13 @@
+---
+- name: Install base packages
+  community.general.pacman:
+    name:
+      - btop
+      - ncdu
+      - neovim
+      - ripgrep
+      - strace
+      - tmux
+      - tree
+    state: present
+  become: true

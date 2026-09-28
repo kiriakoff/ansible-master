@@ -1,0 +1,48 @@
+name: Deploy all roles
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'Hosts to limit the playbook run to (optional)'
+        required: false
+        type: string
+        default: 'all'
+  repository_dispatch:
+    types: [Deploy all roles]
+
+jobs:
+  deploy_traefik:
+    name: Deploy Traefik
+    uses: ./.github/workflows/deploy.yml
+    with:
+      role: traefik
+      limit: ${{ inputs.limit || github.event.inputs.limit || 'all' }}
+    secrets: inherit
+
+  deploy_couchdb:
+    name: Deploy CouchDB
+    needs: deploy_traefik
+    uses: ./.github/workflows/deploy.yml
+    with:
+      role: couchdb
+      limit: ${{ inputs.limit || github.event.inputs.limit || 'all' }}
+    secrets: inherit
+
+  deploy_it_tools:
+    name: Deploy IT tools
+    needs: deploy_traefik
+    uses: ./.github/workflows/deploy.yml
+    with:
+      role: it_tools
+      limit: ${{ inputs.limit || github.event.inputs.limit || 'all' }}
+    secrets: inherit
+
+  deploy_filebrowser:
+    name: Deploy File Browser
+    needs: deploy_traefik
+    uses: ./.github/workflows/deploy.yml
+    with:
+      role: filebrowser
+      limit: ${{ inputs.limit || github.event.inputs.limit || 'all' }}
+    secrets: inherit

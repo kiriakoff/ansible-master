@@ -1,0 +1,19 @@
+---
+- name: Create app directory
+  ansible.builtin.file:
+    path: "{{ app_path }}"
+    state: directory
+    mode: "u=rwx,g=rx,o=rx"
+
+- name: Put docker-compose.yml
+  ansible.builtin.copy:
+    src: "docker-compose.yml"
+    dest: "{{ app_path }}/docker-compose.yml"
+    mode: "u=rw,g=r,o=r"
+
+- name: Recreate the container
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_path }}"
+    remove_orphans: true
+    recreate: always
+    pull: always

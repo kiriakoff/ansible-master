@@ -1,0 +1,231 @@
+---
+- name: Bootstrap new host
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars:
+    update_keyring: false
+    home: /home/ansible
+
+  tasks:
+    - name: Create users from configuration
+      ansible.builtin.user:
+        name: "{{ item.key }}"
+        groups: "{{ item.value.groups | join(',') }}"
+        append: true
+        shell: /bin/bash
+        create_home: true
+      loop: "{{ ssh_user_map | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Add SSH public keys for users
+      ansible.posix.authorized_key:
+        user: "{{ item.0.key }}"
+        key: "{{ item.1 }}"
+        state: present
+      loop: "{{ ssh_user_map | dict2items | subelements('value.pub_keys') }}"
+      loop_control:
+        label: "{{ item.0.key }}"
+
+    - name: Configure sudoers for users
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/{{ item.key }}"
+        content: "{{ item.value.sudoers | join('\n') }}\n"
+        mode: '0440'
+        validate: 'visudo -cf %s'
+      loop: "{{ ssh_user_map | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+      when:
+        - item.value.sudoers is defined
+        - item.value.sudoers | length > 0
+
+    - name: Update keyring
+      ansible.builtin.shell: |
+        if [ ! -f /etc/pacman.d/gnupg/pubring.kbx ] && [ ! -f /etc/pacman.d/gnupg/pubring.gpg ]; then
+          pacman-key --init
+          pacman-key --populate archlinux
+        else
+          pacman-key --refresh-keys
+          pacman-key --populate archlinux
+        fi
+      when: update_keyring | bool
+
+    - name: Update system
+      community.general.pacman:
+        update_cache: true
+        upgrade: true
+
+    - name: Install base packages
+      community.general.pacman:
+        name:
+          - git
+          - base-devel
+          - containerd
+          - docker
+          - docker-compose
+        state: present
+
+    - name: Install yay
+      ansible.builtin.shell: |
+        rm -rf yay-bin
+        git clone https://aur.archlinux.org/yay-bin.git
+        cd yay-bin
+        makepkg -si --noconfirm
+        rm -rf yay-bin
+      args:
+        chdir: '{{ home }}'
+        creates: /usr/bin/yay
+      become_user: ansible
+
+    - name: Put amsible host requirements in place
+      ansible.builtin.copy:
+        src: requirements/host.txt
+        dest: '{{ home }}/requirements.txt'
+      become_user: ansible
+
+    - name: Install Ansible venv
+      ansible.builtin.shell: |
+        python3 -m venv venv
+        venv/bin/pip install -r requirements.txt
+      args:
+        chdir: '{{ home }}'
+      become_user: ansible
+
+    - name: Check if kernel version matches installed package
+      ansible.builtin.shell: |
+        running=$(uname -r | grep -oP '\d+\.\d+\.\d+')
+        installed=$(pacman -Q linux | grep -oP '\d+\.\d+\.\d+')
+
+        echo "Running Kernel: $running"
+        echo "Installed Pkg: $installed"
+
+        if [ "$running" != "$installed" ]; then
+          echo "MISMATCH detected"
+          exit 1
+        else
+          echo "MATCH OK"
+          exit 0
+        fi
+      register: kernel_check
+      changed_when: false
+      failed_when: false
+
+    - name: Display kernel versions
+      ansible.builtin.debug:
+        msg:
+          - "{{ kernel_check.stdout_lines[0] }}"
+          - "{{ kernel_check.stdout_lines[1] }}"
+          - "Kernel Check Result: {{ 'MISMATCH' if kernel_check.rc != 0 else 'OK' }}"
+
+    - block:
+        - name: Reboot host
+          ansible.builtin.reboot:
+
+        - name: Check new kernel version
+          ansible.builtin.shell: |
+            running=$(uname -r | sed 's/-arch.*//')
+            installed=$(pacman -Q linux | awk '{print $2}' | sed 's/-.*//')
+
+        - name: Check if kernel version matches installed package
+          ansible.builtin.shell: |
+            running=$(uname -r | grep -oP '\d+\.\d+\.\d+')
+            installed=$(pacman -Q linux | grep -oP '\d+\.\d+\.\d+')
+
+            echo "Running: $running"
+            echo "Installed: $installed"
+
+            if [ "$running" != "$installed" ]; then
+              echo "MISMATCH detected"
+              exit 1
+            else
+              echo "MATCH OK"
+              exit 0
+            fi
+          register: kernel_post_check
+          changed_when: false
+          failed_when: false
+
+        - name: Display kernel versions
+          ansible.builtin.debug:
+            msg:
+              - "{{ kernel_post_check.stdout_lines[0] }}"
+              - "{{ kernel_post_check.stdout_lines[1] }}"
+              - "Kernel Check Result: {{ 'MISMATCH' if kernel_post_check.rc != 0 else 'OK' }}"
+
+      when: kernel_check.rc != 0
+
+    - name: Ensure SSH service is running
+      ansible.builtin.systemd:
+        name: sshd
+        state: started
+        enabled: true
+
+    - name: Enable and start Containerd service
+      ansible.builtin.systemd:
+        name: containerd
+        enabled: true
+        state: started
+
+    - name: Enable and start Docker service
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Make dirs for apps and data
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "u=rwx,g=rx,o=rx"
+        owner: ansible
+        group: ansible
+      loop:
+        - "{{ common_app_path }}"
+        - "{{ common_data_path }}"
+
+    - name: Disable root password login
+      ansible.builtin.user:
+        name: root
+        password: '!'
+        password_lock: true
+
+    - name: Disable root login completely
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin no'
+        validate: 'sshd -t -f %s'
+      notify: Restart sshd
+
+    - name: Disable password authentication (key-only access)
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?PasswordAuthentication'
+        line: 'PasswordAuthentication no'
+        validate: 'sshd -t -f %s'
+      notify: Restart sshd
+
+    - name: Disable challenge-response authentication
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?KbdInteractiveAuthentication'
+        line: 'KbdInteractiveAuthentication no'
+        validate: 'sshd -t -f %s'
+      notify: Restart sshd
+
+    - name: Disable PAM authentication for SSH
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: '^#?UsePAM'
+        line: 'UsePAM no'
+        validate: 'sshd -t -f %s'
+      notify: Restart sshd
+
+  handlers:
+    - name: Restart sshd
+      ansible.builtin.systemd:
+        name: sshd
+        state: restarted

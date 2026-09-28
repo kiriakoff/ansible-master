@@ -1,0 +1,3 @@
+---
+app_path: "{{ common_app_path }}/couchdb"
+data_path: "{{ common_data_path }}/couchdb"

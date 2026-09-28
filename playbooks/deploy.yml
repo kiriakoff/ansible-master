@@ -1,0 +1,5 @@
+---
+- name: Deploy role
+  hosts: all
+  roles:
+    - role: "{{ role_to_deploy }}"

@@ -1,0 +1,34 @@
+---
+- name: Set user list
+  ansible.builtin.set_fact:
+    bashrc_users_list:
+      - name: root
+        home: /root
+      - name: f
+        home: /home/f
+  run_once: true
+  delegate_to: localhost
+
+- name: Update bashrc
+  ansible.builtin.blockinfile:
+    path: "{{ user.home }}/.bashrc"
+    marker: "# {mark} ANSIBLE MANAGED SECTION"
+    block: "{{ lookup('file', 'files/bashrc-block.sh') }}"
+    create: true
+    owner: "{{ user.name }}"
+    group: "{{ user.name }}"
+    mode: "u=rw,g=r,o=r"
+  loop: "{{ bashrc_users_list }}"
+  loop_control:
+    loop_var: user
+
+- name: Copy rc directory
+  ansible.builtin.copy:
+    src: rc
+    dest: "{{ user.home }}/.rc"
+    owner: "{{ user.name }}"
+    group: "{{ user.name }}"
+    mode: "u=rw,g=r,o=r"
+  loop: "{{ bashrc_users_list }}"
+  loop_control:
+    loop_var: user
