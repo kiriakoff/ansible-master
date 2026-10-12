@@ -8,6 +8,8 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.bio.rule=Host(`{{ domain }}`)"
       - "traefik.http.routers.bio.entrypoints=websecure"
+      # 404s are rendered by the `notfound` service from the traefik role.
+      - "traefik.http.routers.bio.middlewares=bio-404@docker"
       - "traefik.http.services.bio.loadbalancer.server.port=80"
     # environment:
     #   - FLUTTER_WEB_RELEASE=true

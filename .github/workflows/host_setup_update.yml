@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
           cache-dependency-path: playbooks/requirements/runner.txt
@@ -51,12 +51,15 @@ jobs:
           echo '${{ vars.SSH_USER_MAP }}' >> extra_vars.json
 
       - name: Run Ansible playbook
-        run: |
-          ansible-playbook \
-            --limit ${{ inputs.host }} \
-            --extra-vars @extra_vars.json \
-            --extra-vars 'update_keyring=${{ inputs.update_keyring }}' \
-            playbooks/bootstrap.yml
         env:
           ANSIBLE_PYTHON_INTERPRETER: venv/bin/python3
           ANSIBLE_CALLBACK_WHITELIST: profile_tasks
+          # workflow_dispatch passes the host input; a push to main applies to
+          # every inventory host.
+          LIMIT: ${{ inputs.host || 'all' }}
+        run: |
+          ansible-playbook \
+            --limit "$LIMIT" \
+            --extra-vars @extra_vars.json \
+            --extra-vars 'update_keyring=${{ inputs.update_keyring }}' \
+            playbooks/bootstrap.yml

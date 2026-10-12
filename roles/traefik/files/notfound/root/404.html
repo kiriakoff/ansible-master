@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>404 · Fedor Kiriakov</title>
+  <style>
+    :root { color-scheme: light dark; }
+    * { margin: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fafafa;
+      color: #000;
+      font-family: ui-sans-serif, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .plate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 48px 32px;
+      text-align: center;
+      animation: appear 0.5s ease-out both;
+    }
+
+    .code {
+      font-size: clamp(96px, 22vw, 152px);
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    h1 { font-size: 18px; font-weight: 500; }
+    .sub { font-size: 14px; color: #8a8a8a; }
+
+    .btn {
+      margin-top: 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 28px;
+      border: 1px solid rgba(0, 0, 0, 0.16);
+      border-radius: 999px;
+      background: #fff;
+      color: inherit;
+      font: inherit;
+      font-size: 15px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 3px 3px rgba(0, 0, 0, 0.4); }
+    .btn:active { transform: translateY(0); box-shadow: none; }
+
+    @keyframes appear {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #161616; color: #ebebeb; }
+      .sub { color: #8c8c8c; }
+      .btn {
+        background: #161616;
+        border-color: rgba(143, 216, 255, 0.45);
+      }
+      .btn:hover { box-shadow: 0 0 24px rgba(143, 216, 255, 0.34); }
+    }
+  </style>
+</head>
+<body>
+  <main class="plate">
+    <div class="code">404</div>
+    <h1>Такой страницы не существует</h1>
+    <p class="sub">Page not found</p>
+    <!-- TODO(CI): the home URL is hardcoded until it moves to an env var. -->
+    <a class="btn" href="https://kiria-f.ru">На главную</a>
+  </main>
+</body>
+</html>

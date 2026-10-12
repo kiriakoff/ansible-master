@@ -17,6 +17,26 @@ services:
       - traefik.http.routers.traefik.rule=Host(`traefik.{{ domain }}`)
       - traefik.http.routers.traefik.service=api@internal
 
+  # Minimal 404 page. Serves https://{{ domain }}/notfound directly and is
+  # the fallback target for the bio router's errors middleware (bio-404).
+  notfound:
+    image: nginx:alpine
+    container_name: notfound
+    restart: unless-stopped
+    networks:
+      - proxy
+    volumes:
+      - ./notfound/root:/usr/share/nginx/html:ro
+      - ./notfound/default.conf:/etc/nginx/conf.d/default.conf:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.notfound.rule=Host(`{{ domain }}`) && Path(`/notfound`)
+      - traefik.http.routers.notfound.entrypoints=websecure
+      - traefik.http.services.notfound.loadbalancer.server.port=80
+      - traefik.http.middlewares.bio-404.errors.status=404
+      - traefik.http.middlewares.bio-404.errors.service=notfound@docker
+      - traefik.http.middlewares.bio-404.errors.query=/notfound
+
 networks:
   proxy:
     name: proxy

@@ -20,6 +20,12 @@
     state: file
     mode: "u=rw,go="
 
+- name: Copy the 404 page for the notfound service
+  ansible.builtin.copy:
+    src: notfound/
+    dest: "{{ app_path }}/notfound/"
+    mode: "u=rw,g=r,o=r"
+
 - name: Start the container
   community.docker.docker_compose_v2:
     project_src: "{{ app_path }}"

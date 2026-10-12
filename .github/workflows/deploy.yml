@@ -37,7 +37,7 @@ jobs:
     steps:
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -48,11 +48,9 @@ jobs:
 
       - name: Install Ansible
         run: |
-          if ! ansible-galaxy collection list community.general 2>/dev/null; then
-            python -m pip install --upgrade pip
-            pip install -r playbooks/requirements/runner.txt
-            ansible-galaxy collection install -r playbooks/requirements/runner.yml
-          fi
+          python -m pip install --upgrade pip
+          pip install -r playbooks/requirements/runner.txt
+          ansible-galaxy collection install -r playbooks/requirements/runner.yml
 
       - name: Set up SSH
         run: |
