@@ -46,11 +46,32 @@ jobs:
           cache-dependency-path: playbooks/requirements/runner.txt
           cache: 'pip'
 
+      - name: Compute Ansible cache key
+        id: ansible-key
+        run: echo "month=$(date +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      # Deliberately rough cache: one key per month. Within a month the venv
+      # is reused as-is; on the first run of a new month the previous venv is
+      # restored (restore-keys) and pip reconciles it with the requirements.
+      - name: Cache Ansible environment
+        uses: actions/cache@v6
+        id: ansible-cache
+        with:
+          path: ~/ansible-venv
+          key: ansible-${{ runner.os }}-py3.13-${{ steps.ansible-key.outputs.month }}
+          restore-keys: |
+            ansible-${{ runner.os }}-py3.13-
+
       - name: Install Ansible
+        if: steps.ansible-cache.outputs.cache-hit != 'true'
         run: |
-          python -m pip install --upgrade pip
-          pip install -r playbooks/requirements/runner.txt
-          ansible-galaxy collection install -r playbooks/requirements/runner.yml
+          python -m venv ~/ansible-venv
+          ~/ansible-venv/bin/python -m pip install --upgrade pip
+          ~/ansible-venv/bin/pip install -r playbooks/requirements/runner.txt
+          ~/ansible-venv/bin/ansible-galaxy collection install -r playbooks/requirements/runner.yml
+
+      - name: Put Ansible on PATH
+        run: echo "$HOME/ansible-venv/bin" >> "$GITHUB_PATH"
 
       - name: Set up SSH
         run: |
