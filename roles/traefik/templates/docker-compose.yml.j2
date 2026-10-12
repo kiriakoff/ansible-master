@@ -16,6 +16,16 @@ services:
       - traefik.enable=true
       - traefik.http.routers.traefik.rule=Host(`traefik.{{ domain }}`)
       - traefik.http.routers.traefik.service=api@internal
+      # Unhandled subdomains (wildcard DNS points them all here): bounce to
+      # the 404 plate on the main domain. priority=1 keeps this router last,
+      # so explicitly configured subdomains always win over it.
+      - traefik.http.routers.catchall.rule=HostRegexp(`{sub:.+}\.{{ domain }}`)
+      - traefik.http.routers.catchall.entrypoints=websecure
+      - traefik.http.routers.catchall.priority=1
+      - traefik.http.routers.catchall.service=noop@internal
+      - traefik.http.middlewares.catchall-redirect.redirectregex.regex=.*
+      - traefik.http.middlewares.catchall-redirect.redirectregex.replacement=https://{{ domain }}/notfound
+      - traefik.http.routers.catchall.middlewares=catchall-redirect
 
   # Minimal 404 page. Serves https://{{ domain }}/notfound directly and is
   # the fallback target for the bio router's errors middleware (bio-404).
